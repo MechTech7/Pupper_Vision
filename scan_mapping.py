@@ -3,7 +3,7 @@ import pyrealsense2 as rs
 from scipy.spatial.transform import Rotation as R
 import cv2
 
-
+MAX_POINT_COUNT = 1000 #maximum number of points that can be held in the point map
 def get_depth_scale(pipe):
     #this method procures the scale constant to convert depth from raw images to meters
     profile = pipe.get_active_profile()
@@ -24,27 +24,53 @@ def get_pose(pose_frame):
     x = -pose.rotation.x
     y = pose.rotation.x
     z = -pose.rotation.y
-    return np.asarray([w, x, y, z], np.float32), np.asarray([translation.x, translation.y, translation.z], np.float32)
+    return np.asarray([w, x, y, z], np.float32), np.asarray([pose.translation.x, pose.translation.y, pose.translation.z], np.float32)
 
-def scan_portrait(points, min_height = -0.2, max_height = 0.2, panel_width = 500):
+def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, panel_width = 500):
     #min height and max height are minimum and maximum heights that will be included in the scan portrait
     #output a numpy matrix that is effectively a slice of the points that are provided
+
+    MAX_WIDTH = 2
 
     #Note: this display is O(N) so its probably really slow.  
     portrait_mat = np.zeros([panel_width, panel_width], np.uint8)  
     size = points.shape[0]
+
+    scale_val = (panel_width - 10) / (MAX_WIDTH)
+
+    center = int(panel_width / 2)
+
+    write_count = 0
+    #NOTE: Error in this version, no points are being written (need to fix parameters)
     for i in range(size):
         curr_point = points[i]
         if (curr_point[1] > max_height) or (curr_point[1] < min_height):
             continue
+
+        #distance caluclation
+        diff_vec = curr_point - current_pos
+        x_dist = diff_vec[0]
+        y_dist = diff_vec[2]
+
+        x_val = (x_dist * scale_val) + center - 1
+        y_val = (y_dist * scale_val) + center - 1
+
+        if (x_val >= 0 and x_val < panel_width) and (y_val >= 0 and y_val <= panel_width):
+            write_count += 1 
+            portrait_mat[panel_width - int(y_val) - 1][int(x_val)] = 255
+
+    print("Wrote {} point".format(write_count))
+    return portrait_mat
+
+
+
+
         
 
 
 def scan_points(image_frame, intren, depth_scale):
     scan_row = int(image_frame.shape[0] / 2)
     row_size = image_frame.shape[1]
-
-    MAX_WIDTH = 2 #screen covers a maximum of 10 meters of width
     
     point_collection = []
     for j in range(row_size):
@@ -76,41 +102,51 @@ def get_pipes():
 
         pipe = rs.pipeline(context)
         pipe.start(cfg)
-        pipe_list.append(pipe)
+        
+
+        type_val = 'p' #An additional value that allows the cameras to be differentiated
 
         #get scaling value from depth camera
         dev_sensors = dev.query_sensors()
         for sens in dev_sensors:
             if depth_scale == 0.0 and sens.is_depth_sensor():
+                type_val = 'd'
                 depth_scale = sens.as_depth_sensor().get_depth_scale()
                 print("depth scale found! ", depth_scale)
                 break
-    
+        
+        pipe_list.append((pipe, type_val))
+            
+        
     return pipe_list, depth_scale
 
     
-def get_frames():
+def get_frames(pipe_list):
     depth_frame = None
     pose_frame = None
 
     count = 0
-    for pipe in pipe_list:
+    for pipe_pair in pipe_list:
+        pipe = pipe_pair[0]
+        type_val = pipe_pair[1]
+
         print("trying pipe: ", count)
+
         count += 1
         frames = pipe.wait_for_frames()
 
-        dp_frame = frames.get_depth_frame()
-        if dp_frame:
+        
+        if type_val == 'd':
             #if its a depth frame...
             print("depth frame recieved")
-            depth_frame = dp_frame
-            
-        print("not a depth frame")
-        ps_frame = frames.get_pose_frame()
-        if ps_frame:
+            depth_frame = frames.get_depth_frame()
+            continue
+
+
+        if type_val == 'p':
             #if its a pose frame
             print("pose frame recieved") 
-            pose_frame = ps_frame
+            pose_frame = frames.get_pose_frame()
 
         else:
             print("Note: neither depth or pose frames available on this pipe (what's it even for?)")
@@ -125,6 +161,7 @@ def translate_frame_to_points(frameset, depth_scale):
     depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
     depth_mat = np.asarray(depth_frame.get_data())
     
+    pose_frame = frameset[1]
     points = scan_points(depth_mat, depth_intrin, depth_scale)
     r_quat, trans_vec = get_pose(pose_frame)
 
@@ -132,19 +169,31 @@ def translate_frame_to_points(frameset, depth_scale):
     roti = rot_func.apply(points)
     
     trans_points = np.zeros_like(roti)
-    np.add(roti_point, trans_vec, trans_points)
+    np.add(roti, trans_vec, trans_points)
 
-    return trans_points
+    return trans_points, trans_vec
 
 def map_func():
     pipe_list, DEPTH_SCALE = get_pipes()
     print("{} pipes created!".format(len(pipe_list)))
-    map_point_cloud = np.asarray([], np.float32)
+    map_point_cloud = np.zeros((1, 3), np.float32)
     while True:
-        frameset = get_frames() #get the depth and pose frames from the camera stream
-        points = translate_frame_to_points(frameset, DEPTH_SCALE)
+        frameset = get_frames(pipe_list) #get the depth and pose frames from the camera stream
+        points, current_pos = translate_frame_to_points(frameset, DEPTH_SCALE)
 
-        map_point_cloud.append(points, axis=0) #append the points to the overall map
+        print("points_shape: ", points.shape)
+        if map_point_cloud.shape[0] >= MAX_POINT_COUNT:
+            map_point_cloud = map_point_cloud[(points.shape[0] - 1):-1]
+        np.append(map_point_cloud, points, axis=0) #append the points to the overall map
+
+        portrait = scan_portrait(map_point_cloud, current_pos)
+        
+        cv2.imshow("circumstances", portrait)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cv2.destroyAllWindows()
 
 
 
