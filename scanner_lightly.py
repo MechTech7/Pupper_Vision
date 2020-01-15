@@ -1,7 +1,5 @@
 import numpy as np
 import pyrealsense2 as rs
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 import math
 import cv2
 
