@@ -3,7 +3,7 @@ import pyrealsense2 as rs
 from scipy.spatial.transform import Rotation as R
 import cv2
 
-MAX_POINT_COUNT = 1000 #maximum number of points that can be held in the point map
+MAX_POINT_COUNT = 10000 #maximum number of points that can be held in the point map
 def get_depth_scale(pipe):
     #this method procures the scale constant to convert depth from raw images to meters
     profile = pipe.get_active_profile()
@@ -183,8 +183,10 @@ def map_func():
 
         print("points_shape: ", points.shape)
         if map_point_cloud.shape[0] >= MAX_POINT_COUNT:
+            print ("They don't wanna see me in the ends")
             map_point_cloud = map_point_cloud[(points.shape[0] - 1):-1]
-        np.append(map_point_cloud, points, axis=0) #append the points to the overall map
+        
+        map_point_cloud = np.append(map_point_cloud, points, axis=0) #append the points to the overall map
 
         portrait = scan_portrait(map_point_cloud, current_pos)
         
