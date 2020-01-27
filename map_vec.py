@@ -44,7 +44,7 @@ def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, pane
     MAX_WIDTH = 8
 
     #Note: this display is O(N) so its probably really slow.  
-    portrait_mat = np.zeros([panel_width, panel_width], np.uint8)  
+    portrait_mat = np.zeros((panel_width, panel_width), np.uint8)  
     size = points.shape[0]
 
     scale_val = (panel_width - 10) / (MAX_WIDTH)
@@ -52,31 +52,30 @@ def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, pane
     center = int(panel_width / 2)
 
     write_count = 0
-    for i in range(size):
-        curr_point = points[i]
-        if (curr_point[1] > max_height) or (curr_point[1] < min_height):
-            continue
 
-        #distance caluclation
-        diff_vec = curr_point + current_pos
-        x_dist = diff_vec[0]
-        y_dist = diff_vec[2]
+    min_cond = points[:, 1] >= min_height
+    max_cond = points[:, 1] <= max_height
 
-        x_val = (x_dist * scale_val) + center - 1
-        y_val = (y_dist * scale_val) + center - 1
+    truth_cond = np.logical_and(min_cond, max_cond)
 
-        if (x_val >= 0 and x_val < panel_width) and (y_val >= 0 and y_val <= panel_width):
-            write_count += 1 
-            portrait_mat[panel_width - int(y_val) - 1][int(x_val)] = 255
+    height_valid_points = points[truth_cond]
+    print("height_valid_points shape: ", height_valid_points.shape)
+    screen_points = np.delete(height_valid_points, 1, axis=1)
 
-    print("Wrote {} point".format(write_count))
+    screen_points = (screen_points * scale_val) + center - 1
+    x_cond = np.logical_and(screen_points[:, 0] >= 0, screen_points[:, 0] < panel_width)
+    y_cond = np.logical_and(screen_points[:, 1] >= 0, screen_points[:, 1] < panel_width)
+
+    write_cond = np.logical_and(x_cond, y_cond)
+    screen_points = screen_points[write_cond]
+
+    screen_coords = screen_points.astype(np.int32)
+
+    print("points shape: ", points.shape)
+    print("screen_coords shape: ", screen_coords.shape)
+    portrait_mat[screen_coords] = 255 #problem: This Numpy indexing is not very straightforward [i, j] indices return a slice
+
     return portrait_mat
-
-
-
-
-        
-
 
 def scan_points(image_frame, intren, depth_scale):
     scan_row = int(image_frame.shape[0] / 2)
