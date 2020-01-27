@@ -1,9 +1,10 @@
 import numpy as np
 import pyrealsense2 as rs
 from scipy.spatial.transform import Rotation as R
+import math as m
 import cv2
 
-MAX_POINT_COUNT = 10000 #maximum number of points that can be held in the point map
+MAX_POINT_COUNT = 100000 #maximum number of points that can be held in the point map
 def get_depth_scale(pipe):
     #this method procures the scale constant to convert depth from raw images to meters
     profile = pipe.get_active_profile()
@@ -18,19 +19,26 @@ def get_pose(pose_frame):
     if not pose_frame:
         print("no pose found!")
         return np.asarray([], np.float32), np.asarray([], np.float32)
-    pose = pose_frame.get_pose_data()
+    data = pose_frame.get_pose_data()
     #Note: Rotation in returned as a quaternion
-    w = pose.rotation.w
-    x = -pose.rotation.x
-    y = pose.rotation.x
-    z = -pose.rotation.y
-    return np.asarray([w, x, y, z], np.float32), np.asarray([pose.translation.x, pose.translation.y, pose.translation.z], np.float32)
+    #Euler angles from quaternion
 
-def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, panel_width = 500):
+    w = data.rotation.w
+    x = -data.rotation.z
+    y = data.rotation.x
+    z = -data.rotation.y
+
+    pitch =  -m.asin(2.0 * (x*z - w*y)) * 180.0 / m.pi;
+    roll  =  m.atan2(2.0 * (w*x + y*z), w*w - x*x - y*y + z*z) * 180.0 / m.pi;
+    yaw   =  m.atan2(2.0 * (w*z + x*y), w*w + x*x - y*y - z*z) * 180.0 / m.pi;
+
+    return np.asarray([pitch, yaw, roll], np.float32), np.asarray([data.translation.x, data.translation.y, data.translation.z], np.float32)
+
+def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, panel_width = 1000):
     #min height and max height are minimum and maximum heights that will be included in the scan portrait
     #output a numpy matrix that is effectively a slice of the points that are provided
 
-    MAX_WIDTH = 2
+    MAX_WIDTH = 8
 
     #Note: this display is O(N) so its probably really slow.  
     portrait_mat = np.zeros([panel_width, panel_width], np.uint8)  
@@ -41,14 +49,13 @@ def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, pane
     center = int(panel_width / 2)
 
     write_count = 0
-    #NOTE: Error in this version, no points are being written (need to fix parameters)
     for i in range(size):
         curr_point = points[i]
         if (curr_point[1] > max_height) or (curr_point[1] < min_height):
             continue
 
         #distance caluclation
-        diff_vec = curr_point - current_pos
+        diff_vec = curr_point + current_pos
         x_dist = diff_vec[0]
         y_dist = diff_vec[2]
 
@@ -121,7 +128,7 @@ def get_pipes():
     return pipe_list, depth_scale
 
     
-def get_frames(pipe_list):
+def get_frames(pipe_list, filter=None):
     depth_frame = None
     pose_frame = None
 
@@ -140,6 +147,10 @@ def get_frames(pipe_list):
             #if its a depth frame...
             print("depth frame recieved")
             depth_frame = frames.get_depth_frame()
+
+            if filter != None:
+                print ("decimating!")
+                depth_frame = filter.process(depth_frame)
             continue
 
 
@@ -163,9 +174,9 @@ def translate_frame_to_points(frameset, depth_scale):
     
     pose_frame = frameset[1]
     points = scan_points(depth_mat, depth_intrin, depth_scale)
-    r_quat, trans_vec = get_pose(pose_frame)
+    r_angles, trans_vec = get_pose(pose_frame)
 
-    rot_func = R.from_quat(r_quat)
+    rot_func = R.from_euler('xyz', r_angles, degrees=True)
     roti = rot_func.apply(points)
     
     trans_points = np.zeros_like(roti)
@@ -177,8 +188,11 @@ def map_func():
     pipe_list, DEPTH_SCALE = get_pipes()
     print("{} pipes created!".format(len(pipe_list)))
     map_point_cloud = np.zeros((1, 3), np.float32)
+    
+    decimate = rs.decimation_filter()
+
     while True:
-        frameset = get_frames(pipe_list) #get the depth and pose frames from the camera stream
+        frameset = get_frames(pipe_list, decimate) #get the depth and pose frames from the camera stream
         points, current_pos = translate_frame_to_points(frameset, DEPTH_SCALE)
 
         print("points_shape: ", points.shape)
