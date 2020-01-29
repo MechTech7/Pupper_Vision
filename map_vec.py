@@ -4,7 +4,7 @@ from scipy.spatial.transform import Rotation as R
 import math as m
 import cv2
 
-MAX_POINT_COUNT = 10000 #maximum number of points that can be held in the point map
+MAX_POINT_COUNT = 10e8 #maximum number of points that can be held in the point map
 def get_depth_scale(pipe):
     #this method procures the scale constant to convert depth from raw images to meters
     profile = pipe.get_active_profile()
@@ -45,14 +45,14 @@ def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, pane
 
     #Note: this display is O(N) so its probably really slow.  
     portrait_mat = np.zeros((panel_width, panel_width), np.uint8)  
-    size = points.shape[0]
 
     scale_val = (panel_width - 10) / (MAX_WIDTH)
 
     center = int(panel_width / 2)
 
-    write_count = 0
+    print("pos shape: ", current_pos.shape)
 
+    points = np.add(points, current_pos)
     min_cond = points[:, 1] >= min_height
     max_cond = points[:, 1] <= max_height
 
@@ -73,7 +73,8 @@ def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, pane
 
     print("points shape: ", points.shape)
     print("screen_coords shape: ", screen_coords.shape)
-    portrait_mat[screen_coords] = 255 #problem: This Numpy indexing is not very straightforward [i, j] indices return a slice
+    screen_coords[:, 1] = -screen_coords[:, 1] + panel_width - 1
+    portrait_mat[screen_coords[:, 1], screen_coords[:, 0]] = 255 #problem: This Numpy indexing is not very straightforward [i, j] indices return a slice
 
     return portrait_mat
 

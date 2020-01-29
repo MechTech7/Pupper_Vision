@@ -4,7 +4,7 @@ from scipy.spatial.transform import Rotation as R
 import math as m
 import cv2
 
-MAX_POINT_COUNT = 10000 #maximum number of points that can be held in the point map
+MAX_POINT_COUNT = 10e7 #maximum number of points that can be held in the point map
 def get_depth_scale(pipe):
     #this method procures the scale constant to convert depth from raw images to meters
     profile = pipe.get_active_profile()
