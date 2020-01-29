@@ -78,7 +78,7 @@ def scan_portrait(points, current_pos, min_height = -0.2, max_height = 0.2, pane
 
     return portrait_mat
 
-def scan_points(image_frame, intren, depth_scale):
+def old_scan_points(image_frame, intren, depth_scale):
     scan_row = int(image_frame.shape[0] / 2)
     row_size = image_frame.shape[1]
     
@@ -91,10 +91,19 @@ def scan_points(image_frame, intren, depth_scale):
 
     return np.asarray(point_collection, np.float32)
 
+def scan_points(depth_frame, d_height, thresh=0.2):
+    pc = rs.pointcloud()
+    points = pc.calculate(depth_frame)
+    verts = np.asarray(points.get_vertices())
+    print ("verts shape: ", verts.shape)
 
-def map_environment(frames, map_point_cloud):
-    pose = get_pose(frames)
-    return np.asarray([], np.float32)
+    #get only points that are around a certain height
+    low_cond = points[:, 1] - d_height >= -thresh
+    high_cond = points[:, 1] - d_height <= thresh
+
+    truth_cond = np.logical_and(low_cond, high_cond)
+    return points[truth_cond]
+
 
 def get_pipes():
     context = rs.context()
@@ -176,7 +185,8 @@ def translate_frame_to_points(frameset, depth_scale):
     depth_mat = np.asarray(depth_frame.get_data())
     
     pose_frame = frameset[1]
-    points = scan_points(depth_mat, depth_intrin, depth_scale)
+    #points = scan_points(depth_mat, depth_intrin, depth_scale)
+    points = scan_points(depth_frame, depth_intrin, depth_scale)
     r_angles, trans_vec = get_pose(pose_frame)
 
     rot_func = R.from_quat(r_angles, normalized=None)#R.from_euler('xyz', r_angles, degrees=True)
