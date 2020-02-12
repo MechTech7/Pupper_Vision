@@ -16,6 +16,9 @@ class scan_portait:
 		
 		self.portrait = None
 
+		self.rotation_quat = None
+		self.translation = None
+
 
 
 	def add_points(self, new_points):
@@ -51,18 +54,24 @@ class scan_portait:
 	def get_portrait(self):
 		return self.portrait
 	
-	def get_pose(self, pose_frame):
+	def get_pose_from_frame(self, pose_frame):
 		#return pose and translation as a 6-long numpy array
+		#Also, update the pose within the class
+
 		if not pose_frame:
 			print("no pose found!")
 			return np.asarray([], np.float32), np.asarray([], np.float32)
 		
 		data = pose_frame.get_pose_data()
 		#Note: Rotation in returned as a quaternion
-		quat_arr = np.asarray([-data.rotation.x, -data.rotation.y, -data.rotation.z, data.rotation.w], np.float32)
+		self.rotation_quat = np.asarray([-data.rotation.x, -data.rotation.y, -data.rotation.z, data.rotation.w], np.float32)
+		self.translation = np.asarray([data.translation.x, data.translation.y, data.translation.z], np.float32)
 		
-		return quat_arr, np.asarray([data.translation.x, data.translation.y, data.translation.z], np.float32)
+		return self.rotation_quat, self.translation
 	
+	def get_pose(self):
+		return self.rotation_quat, self.translation
+
 	def scan_portrait(self, points, min_height = -0.2, max_height = 0.2, panel_width = 1000):
 		#min height and max height are minimum and maximum heights that will be included in the scan portrait
 		#output a numpy matrix that is effectively a slice of the points that are provided
@@ -105,7 +114,7 @@ class scan_portait:
 	
 		pose_frame = frameset[1]
 		points = self.scan_points(depth_mat, depth_intrin, depth_scale)
-		r_angles, trans_vec = self.get_pose(pose_frame)
+		r_angles, trans_vec = self.get_pose_from_frame(pose_frame)
 
 	
 		rot_func = R.from_quat(r_angles, normalized=None)

@@ -5,7 +5,7 @@ import pyrealsense2 as rs
 import image_scan as im_scan
 import camera_management as c_man
 
-def vector_test(scan_por, dir_vec, position, pix_scale=0.1):
+def vector_test(scan_por, dir_vec, position):
 	#tests a vector in a given direction
 	#all multi-element values are numpy arrays of type int
 	# vector form: [x, y]
@@ -46,10 +46,8 @@ def vector_test(scan_por, dir_vec, position, pix_scale=0.1):
 		#draw circles over the image
 		cv2.circle(rgb_portrait, (x_val, y_val), radius=2, color=(0, 255, 0), thickness=1)
 	
-	
-
 	percent = score / n_count
-	return ((percent - thresh) > 0.5), rgb_portrait
+	return ((percent - thresh) > 0), rgb_portrait
 
 def main():
 	cam_pipes, depth_scale = c_man.get_pipes()
@@ -65,6 +63,9 @@ def main():
 		frameset = c_man.get_frames(cam_pipes, dec_filter)
 		scan_mat = dep_scan.get_portrait_from_frames(frameset, depth_scale)
 		
+		_, trans_position = dep_scan.get_pose()
+
+		vector_test(dep_scan, dir_vec=np.array([3, 4]), position=trans_position)
 		cv2.imshow("circumstances", scan_mat)
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break
