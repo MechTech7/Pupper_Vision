@@ -21,11 +21,17 @@ def vector_test(scan_por, dir_vec, position, pix_scale=0.1):
 	sized_vec = dir_vec / 10
 
 	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
+
+	#Draw a line representing the vector
+	line_end = position + n_count * sized_vec
+	end_x, end_y = scan_por.xy_to_coords(line_end)
+
+	cv2.line(rgb_portrait, (end_x, end_y), color=(255, 0, 0), thickness=2)
 	for i in range(1, n_count + 1):
 		test_point = position + i * sized_vec
 
 		#conversion into occupancy map coordinates
-		x_val, y_val = scan_por.xy_to_coords(self, test_point)
+		x_val, y_val = scan_por.xy_to_coords(test_point)
 		
 		sample = portrait[y_val, x_val]
 		print("----Test_point: [" + str(y_val) + ", " + str(x_val) + "]")
@@ -36,10 +42,11 @@ def vector_test(scan_por, dir_vec, position, pix_scale=0.1):
 		if sample != 0 and point_dist <= thresh:
 			print("I was in france")
 			score += 1
-		
-	line_end = center_pos + n_count * dir_vec
-	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
-	cv2.line(rgb_portrait, (p_width - 1 - center_pos[1], center_pos[0]), (p_width - 1 - line_end[1], line_end[0]), (255, 0, 0), 2)
+
+		#draw circles over the image
+		cv2.circle(rgb_portrait, (x_val, y_val), radius=2, color=(0, 255, 0), thickness=1)
+	
+	
 
 	percent = score / n_count
 	return ((percent - thresh) > 0.5), rgb_portrait
