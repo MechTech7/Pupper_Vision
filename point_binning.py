@@ -7,7 +7,7 @@ import cv2
 #Outline for this program:  
 #This formalizes the occupancy map that was loosly defined in the pervious mapping programs
 
-MAX_POINT_COUNT = 10e8 #maximum number of points that can be held in the point map
+MAX_POINT_COUNT = 10e3 #maximum number of points that can be held in the point map
 def get_depth_scale(pipe):
 	#this method procures the scale constant to convert depth from raw images to meters
 	profile = pipe.get_active_profile()
@@ -24,7 +24,6 @@ def get_pose(pose_frame):
 		return np.asarray([], np.float32), np.asarray([], np.float32)
 	data = pose_frame.get_pose_data()
 	#Note: Rotation in returned as a quaternion
-	#Euler angles from quaternion
 	quat_arr = np.asarray([-data.rotation.x, -data.rotation.y, -data.rotation.z, data.rotation.w], np.float32)
 	
 
@@ -233,7 +232,7 @@ def new_translate(frameset, depth_scale):
 	return roti, trans_vec
 
 
-def vector_test(portrait, dir_vec, position, pix_scale=0.1):
+def vector_test(portrait, dir_vec, position, pix_scale=0.1, ):
 	#tests a vector in a given direction
 	#all multi-element values are numpy arrays of type int
 	# vector form: [x, y]
@@ -246,15 +245,14 @@ def vector_test(portrait, dir_vec, position, pix_scale=0.1):
 	MAX_WIDTH = 8
 	scale_val = (p_width - 10) / (MAX_WIDTH)
 
-	dir_vec[1] = -dir_vec[1]
+	dir_vec[1] = -dir_vec[1] #invert y
 
-	center_pos = (scale_val * position).astype(np.int32) + center_val
+	center_pos = (scale_val * position).astype(np.int32) + center_val #define the origin of the vector
 
-	n_count = 10
-	thresh = 0.6
+	n_count = 20
+	max_safe_steps = 5
 
-	score = 0
-
+	obstacle_detected = False
 	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
 	for i in range(1, n_count + 1):
 		test_point = center_pos + 2 * i * dir_vec
@@ -263,16 +261,18 @@ def vector_test(portrait, dir_vec, position, pix_scale=0.1):
 		sample = portrait[p_width - 1 - test_point[1], test_point[0]]
 		print("########Testing: " + str(test_point[0]) + " " + str(p_width - 1 - test_point[1]))
 
-		if sample != 0:
+		if sample != 0 and i < max_safe_steps:
 			print("hotter than ever")
-			score += 1
+			obstacle_detected = True
 		
 	line_end = center_pos + n_count * dir_vec
 	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
-	cv2.line(rgb_portrait, (p_width - 1 - center_pos[1], center_pos[0]), (p_width - 1 - line_end[1], line_end[0]), (255, 0, 0), 2)
 
-	percent = score / n_count
-	return ((percent - thresh) > 0), rgb_portrait
+	
+	cv2.line(rgb_portrait, (p_width - 1 - center_pos[1], center_pos[0]), (p_width - 1 - line_end[1], line_end[0]), (255, 0, 0), 2)
+	cv2.circle(rgb_portrait, (p_width - 1 - line_end[1], line_end[0]), radius=2, color=(0, 255, 0))
+	
+	return obstacle_detected, rgb_portrait
 	
 def map_func():
 	pipe_list, DEPTH_SCALE = get_pipes()
@@ -287,7 +287,7 @@ def map_func():
 		points, current_pos = translate_frame_to_points(frameset, DEPTH_SCALE)
 		print("points_shape: ", points.shape)
 		if map_point_cloud.shape[0] >= MAX_POINT_COUNT:
-			print ("They don't wanna see me in the ends")
+			print ("-------------They don't wanna see me in the ends")
 			map_point_cloud = map_point_cloud[(points.shape[0] - 1):-1]
 		
 		map_point_cloud = np.append(map_point_cloud, points, axis=0) #append the points to the overall map
@@ -295,12 +295,13 @@ def map_func():
 		portrait = scan_portrait(map_point_cloud, current_pos)
 		
 		#Vector testing section-----------------------
-		test_vec = np.array([8, 8], np.int32)
+		test_vec = np.array([8, -8], np.int32)
 		int_pos = current_pos.astype(np.int32)
 		int_pos = np.delete(int_pos, 1, axis=0)
 
 		test_val, rgb_portrait = vector_test(portrait, test_vec, np.delete(current_pos, 1, axis=0))
 		
+		print ("Test val: ", test_val)
 		if (test_val):
 			print("----------------watch out!")
 
