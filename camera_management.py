@@ -9,7 +9,7 @@ def get_frames(pipe_list, filter=None):
 		pipe = pipe_pair[0]
 		type_val = pipe_pair[1]
 
-		print("trying pipe: ", count)
+		#print("trying pipe: ", count)
 
 		count += 1
 		frames = pipe.wait_for_frames()
@@ -17,7 +17,7 @@ def get_frames(pipe_list, filter=None):
 		
 		if type_val == 'd':
 			#if its a depth frame...
-			print("depth frame recieved")
+			#print("depth frame recieved")
 			depth_frame = frames.get_depth_frame()
 
 			if filter != None:
@@ -28,7 +28,7 @@ def get_frames(pipe_list, filter=None):
 
 		if type_val == 'p':
 			#if its a pose frame
-			print("pose frame recieved") 
+			#print("pose frame recieved") 
 			pose_frame = frames.get_pose_frame()
 
 		else:

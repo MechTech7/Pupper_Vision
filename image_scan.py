@@ -77,7 +77,7 @@ class scan_portait:
 		truth_cond = np.logical_and(min_cond, max_cond)
 
 		height_valid_points = points[truth_cond]
-		print("height_valid_points shape: ", height_valid_points.shape)
+		#print("height_valid_points shape: ", height_valid_points.shape)
 		screen_points = np.delete(height_valid_points, 1, axis=1)
 
 		screen_points = (screen_points * self.scale) + center - 1
@@ -89,8 +89,8 @@ class scan_portait:
 
 		screen_coords = screen_points.astype(np.int32)
 
-		print("points shape: ", points.shape)
-		print("screen_coords shape: ", screen_coords.shape)
+		#print("points shape: ", points.shape)
+		#print("screen_coords shape: ", screen_coords.shape)
 		screen_coords[:, 1] = -screen_coords[:, 1] + self.portrait_width - 1
 		portrait_mat[screen_coords[:, 1], screen_coords[:, 0]] = 255
 

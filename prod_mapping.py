@@ -6,7 +6,6 @@ import image_scan as im_scan
 import camera_management as c_man
 
 def vector_test(scan_por, dir_vec, position, pix_scale=0.1):
-	#TODO: Make this function mean something    
 	#tests a vector in a given direction
 	#all multi-element values are numpy arrays of type int
 	# vector form: [x, y]
@@ -14,25 +13,28 @@ def vector_test(scan_por, dir_vec, position, pix_scale=0.1):
 	# the function will step along the vector N times by incrementing position by x and y
 
 	portrait = scan_por.get_portrait()
-	
 	scan_por.xy_to_coords(self, [0, 0])
 
 	n_count = 10
-	thresh = 0.6
+	thresh = 0.6 #maximum distance in meters at which something is considered a credible obstacle
 
-	score = 0
+	sized_vec = dir_vec / 10
 
 	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
 	for i in range(1, n_count + 1):
-		test_point = position + i * dir_vec
+		test_point = position + i * sized_vec
 
-		#conversion into occupancy map coords
+		#conversion into occupancy map coordinates
 		x_val, y_val = scan_por.xy_to_coords(self, test_point)
+		
 		sample = portrait[y_val, x_val]
-		print("########Testing: " + str(y_val) + " " + str(x_val))
+		print("----Test_point: [" + str(y_val) + ", " + str(x_val) + "]")
 
-		if sample != 0:
-			print("hotter than ever")
+		point_dist = np.linalg.norm(test_point)
+		print("----Real distance: ", str(point_dist))
+
+		if sample != 0 and point_dist <= thresh:
+			print("I was in france")
 			score += 1
 		
 	line_end = center_pos + n_count * dir_vec
@@ -40,11 +42,11 @@ def vector_test(scan_por, dir_vec, position, pix_scale=0.1):
 	cv2.line(rgb_portrait, (p_width - 1 - center_pos[1], center_pos[0]), (p_width - 1 - line_end[1], line_end[0]), (255, 0, 0), 2)
 
 	percent = score / n_count
-	return ((percent - thresh) > 0), rgb_portrait
+	return ((percent - thresh) > 0.5), rgb_portrait
 
 def main():
 	cam_pipes, depth_scale = c_man.get_pipes()
-	print("{} pipes created!".format(len(cam_pipes)))
+	#print("{} pipes created!".format(len(cam_pipes)))
 
 	dec_filter = rs.decimation_filter()
 
