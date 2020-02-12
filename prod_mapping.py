@@ -13,10 +13,9 @@ def vector_test(scan_por, dir_vec, position):
 	# the function will step along the vector N times by incrementing position by x and y
 
 	portrait = scan_por.get_portrait()
-	scan_por.xy_to_coords(self, [0, 0])
 
 	n_count = 10
-	thresh = 0.6 #maximum distance in meters at which something is considered a credible obstacle
+	thresh = 0.2 #maximum distance in meters at which something is considered a credible obstacle
 
 	sized_vec = dir_vec / 10
 
@@ -24,9 +23,13 @@ def vector_test(scan_por, dir_vec, position):
 
 	#Draw a line representing the vector
 	line_end = position + n_count * sized_vec
+	start_x, start_y = scan_por.xy_to_coords(position)
 	end_x, end_y = scan_por.xy_to_coords(line_end)
+	cv2.line(rgb_portrait, (start_x, start_y), (end_x, end_y), color=(255, 0, 0), thickness=2)
+	
+	#Set accumulator to zero
+	score = 0
 
-	cv2.line(rgb_portrait, (end_x, end_y), color=(255, 0, 0), thickness=2)
 	for i in range(1, n_count + 1):
 		test_point = position + i * sized_vec
 
@@ -47,7 +50,7 @@ def vector_test(scan_por, dir_vec, position):
 		cv2.circle(rgb_portrait, (x_val, y_val), radius=2, color=(0, 255, 0), thickness=1)
 	
 	percent = score / n_count
-	return ((percent - thresh) > 0), rgb_portrait
+	return ((percent - thresh) >= 0), rgb_portrait
 
 def main():
 	cam_pipes, depth_scale = c_man.get_pipes()
@@ -65,8 +68,13 @@ def main():
 		
 		_, trans_position = dep_scan.get_pose()
 
-		vector_test(dep_scan, dir_vec=np.array([3, 4]), position=trans_position)
-		cv2.imshow("circumstances", scan_mat)
+		xz_pos = np.delete(trans_position, 1, axis=0)
+
+		pass_fail, rgb_mat = vector_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
+		
+		print("pass_fail: ", pass_fail)
+		cv2.imshow("circumstances", rgb_mat)
+
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break
 
