@@ -15,7 +15,9 @@ def vector_test(scan_por, dir_vec, position):
 	portrait = scan_por.get_portrait()
 
 	n_count = 10
-	thresh = 0.2 #maximum distance in meters at which something is considered a credible obstacle
+	thresh = 0.5 #maximum distance in meters at which something is considered a credible obstacle
+	
+	min_perc = 0.1 #minimum percentage to be considered a "hit"
 
 	sized_vec = dir_vec / 10
 
@@ -35,7 +37,7 @@ def vector_test(scan_por, dir_vec, position):
 
 		#conversion into occupancy map coordinates
 		x_val, y_val = scan_por.xy_to_coords(test_point)
-		
+		#TODO: do an in-bounds check on the xy of the scanning vector
 		sample = portrait[y_val, x_val]
 		print("----Test_point: [" + str(y_val) + ", " + str(x_val) + "]")
 
@@ -50,26 +52,24 @@ def vector_test(scan_por, dir_vec, position):
 		cv2.circle(rgb_portrait, (x_val, y_val), radius=2, color=(0, 255, 0), thickness=1)
 	
 	percent = score / n_count
-	return ((percent - thresh) >= 0), rgb_portrait
+	print ("percent value: ", percent)
+	
+	return ((percent - thresh) >= min_perc), rgb_portrait
 
 def main():
 	cam_pipes, depth_scale = c_man.get_pipes()
 	#print("{} pipes created!".format(len(cam_pipes)))
 
 	dec_filter = rs.decimation_filter()
-
-	
 	dep_scan = im_scan.scan_portait()
-	
-	
+
 	while True:
 		frameset = c_man.get_frames(cam_pipes, dec_filter)
 		scan_mat = dep_scan.get_portrait_from_frames(frameset, depth_scale)
 		
+		dep_scan.conv_reduce()
 		_, trans_position = dep_scan.get_pose()
-
 		xz_pos = np.delete(trans_position, 1, axis=0)
-
 		pass_fail, rgb_mat = vector_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
 		
 		print("pass_fail: ", pass_fail)

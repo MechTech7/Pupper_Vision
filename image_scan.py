@@ -1,7 +1,9 @@
 import numpy as np
 import pyrealsense2 as rs
 import cv2
+
 from scipy.spatial.transform import Rotation as R
+from scipy.ndimage import convolve
 
 class scan_portait:
 	#This makes scan portrait a unified object to minimize repetition of code and increase understandability
@@ -20,6 +22,30 @@ class scan_portait:
 		self.translation = None
 
 
+	
+	def conv_reduce(self, reduction_coeff=0.2):
+		#reduce the current portrait down to a given output size given the
+		# NOTE: formula for output width: (W−F+2P)/S+1 
+		# NOTE: to reduce without any weird overlapping, step by the same size as kernel size
+
+		#NOTE: default reduction is set to 1/5 of the original size but can be changed as necessary
+		output_w = self.portrait_width * reduction_coeff
+
+		#Reduction by a certain coefficient should only work if the original width divides evenly into it
+		assert (output_w % 1) == 0
+		
+		kernel_size = self.portrait_width / output_w
+		kernel = np.full((kernel_size, kernel_size), fill_value=(1/255))
+
+		red_portrait = convolve(self.portrait, weights=kernel, mode='constant', cval=0.0)
+		
+		#This assert is here for debug to make sure that the output vector is the right shape
+		assert red_portrait.shape[1] == int(output_w)
+		
+		self.portrait = red_portrait
+		self.portrait_width = output_w
+
+		return red_portrait
 
 	def add_points(self, new_points):
 		#add the new points to the larger numpy array of points
@@ -36,7 +62,7 @@ class scan_portait:
 		#coord pair is a 2 numpy array [x, y]
 		center_val = int(self.portrait_width / 2) #this may be rough but it should work
 		delta_x = int(self.scale * coord_pair[0])
-		delta_y = int(self.scale *coord_pair[1])
+		delta_y = int(self.scale * coord_pair[1])
 
 		return (delta_x + center_val), (self.portrait_width - (delta_y + center_val))
 
