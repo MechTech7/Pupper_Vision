@@ -34,12 +34,15 @@ class scan_portait:
 		#Reduction by a certain coefficient should only work if the original width divides evenly into it
 		assert (output_w % 1) == 0
 		
-		kernel_size = self.portrait_width / output_w
+		kernel_size = int(self.portrait_width / output_w)
 		kernel = np.full((kernel_size, kernel_size), fill_value=(1/255))
+
+		print ("kernel: ", kernel.shape)
 
 		red_portrait = convolve(self.portrait, weights=kernel, mode='constant', cval=0.0)
 		
 		#This assert is here for debug to make sure that the output vector is the right shape
+		print ("res_portrait: ", red_portrait.shape)
 		assert red_portrait.shape[1] == int(output_w)
 		
 		self.portrait = red_portrait
