@@ -6,10 +6,62 @@ import image_scan as im_scan
 import camera_management as c_man
 
 def new_vec_test(scan_por, dir_vec, position):
+	#dir_vec is a numpy array with [x, z]
+	#positino is a numpy array with [x, z]
+
 	portrait = scan_por.get_portrait()
 
+	pdir_x, pdir_y = scan_por.xy_to_coords(dir_vec)
+
+	pix_x, pix_y = scan_por.xy_to_coords(position)
+
+	pos_arr = np.asarray([pix_y, pix_x])
+
+	print("position shape: ", position.shape)
+
+	#make sure points are in the right direction:
 	on_points = np.argwhere(portrait)
 	print ("argwhere shape: ", on_points.shape)
+
+	#TODO: filter out points that aren't in the direction you want.
+	
+	offset_points = on_points - pos_arr
+	print ("offset points: ", offset_points.shape)
+	print("offset points[:0]" , offset_points[:, 0].shape)
+	print ("offset points [:1]", offset_points[:, 1].shape)
+
+	mul_vec = np.multiply(offset_points, np.array([pdir_y, pdir_x]))
+	prop_dir = mul_vec >= 0 #get a truth mask for everywhere mul_vec has a positive value
+
+	prop_dir = np.all(prop_dir, axis=1)
+	print ("prop_dir: ", prop_dir.shape)
+	
+	offset_points = offset_points[prop_dir]
+	slopes = np.divide(offset_points[:, 0], (offset_points[:, 1] + 1e-10)) 
+	print ("slopes shape: ", slopes.shape)
+
+	ref_slope = pdir_y / (pdir_x + 1e-10)
+
+	sub_slopes = slopes - ref_slope
+	sub_slopes = np.abs(sub_slopes)
+
+	deviation = 0.1
+
+	hit_idxs = np.where(sub_slopes <= deviation)
+	hit_points = on_points[hit_idxs]
+
+	print ("hit points: ", hit_points.shape)
+	
+
+	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
+	
+	line_end = dir_vec * 10
+	
+
+	cv2.line(rgb_portrait, (pix_x, pix_y), (pix_x + pdir_x * 10, pix_y + pdir_y * 10), color=(255, 0, 0), thickness=2)
+
+	return (hit_points.shape[0] > 1), rgb_portrait
+	
 
 
 
@@ -78,11 +130,11 @@ def main():
 		#dep_scan.conv_reduce()
 		_, trans_position = dep_scan.get_pose()
 		xz_pos = np.delete(trans_position, 1, axis=0)
-		pass_fail, rgb_mat = vector_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
+		#pass_fail, rgb_mat = vector_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
 		
-		new_vec_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
+		pass_fail, rgb_mat = new_vec_test(dep_scan, dir_vec=np.array([0.5, 0.0001]), position=xz_pos)
 		
-		print("pass_fail: ", pass_fail)
+		print("-------------------------pass_fail: ", pass_fail)
 		cv2.imshow("circumstances", rgb_mat)
 
 		if cv2.waitKey(1) & 0xFF == ord('q'):
