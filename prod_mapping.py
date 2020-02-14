@@ -5,6 +5,14 @@ import pyrealsense2 as rs
 import image_scan as im_scan
 import camera_management as c_man
 
+def new_vec_test(scan_por, dir_vec, position):
+	portrait = scan_por.get_portrait()
+
+	on_points = np.argwhere(portrait)
+	print ("argwhere shape: ", on_points.shape)
+
+
+
 def vector_test(scan_por, dir_vec, position):
 	#tests a vector in a given direction
 	#all multi-element values are numpy arrays of type int
@@ -67,10 +75,12 @@ def main():
 		frameset = c_man.get_frames(cam_pipes, dec_filter)
 		scan_mat = dep_scan.get_portrait_from_frames(frameset, depth_scale)
 		
-		dep_scan.conv_reduce()
+		#dep_scan.conv_reduce()
 		_, trans_position = dep_scan.get_pose()
 		xz_pos = np.delete(trans_position, 1, axis=0)
 		pass_fail, rgb_mat = vector_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
+		
+		new_vec_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
 		
 		print("pass_fail: ", pass_fail)
 		cv2.imshow("circumstances", rgb_mat)
