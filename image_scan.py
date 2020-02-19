@@ -69,6 +69,21 @@ class scan_portait:
 
 		return (delta_x + center_val), (self.portrait_width - (delta_y + center_val))
 
+	def coords_to_xy(self, ord_vec):
+		#convert a vector of pixel coordinates to real world coordinates
+
+		center_val = int(self.portrait_width / 2)
+		ord_vec[:, 1] -= (center_val - 1)
+		ord_vec[:, 0] -= (self.portrait_width - 1) - (center_val - 1)
+
+		print ("ord_vec: ", ord_vec.shape)
+		print (ord_vec.dtype)
+		ord_vec = np.divide(ord_vec, self.scale)
+
+		print (ord_vec)
+		return ord_vec
+
+
 	def get_portrait_from_frames(self, frameset, depth_scale):
 		#return the scan portrait based on the depth and pose frames
 		#and updates the class's potrait value

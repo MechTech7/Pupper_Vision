@@ -5,9 +5,125 @@ import pyrealsense2 as rs
 import image_scan as im_scan
 import camera_management as c_man
 
-def new_vec_test(scan_por, dir_vec, position):
+
+def real_oord_test(scan_por, dir_vec, position):
+	#This a function that does the cosine similarity detection but with the coordinates from the scan portrait
+	#converted into real coordinate values to preserve direction
+	
 	#dir_vec is a numpy array with [x, z]
-	#positino is a numpy array with [x, z]
+	#position is a numpy array with [x, z]
+	
+	portrait = scan_por.get_portrait()
+	print("position shape: ", position.shape)
+
+	pdir_x, pdir_y = scan_por.xy_to_coords(dir_vec)
+
+	pix_x, pix_y = scan_por.xy_to_coords(position)
+
+	#pixel-coordinates of all of the points that are "on"
+	on_points = np.argwhere(portrait)
+
+	real_coords = scan_por.coords_to_xy(on_points)
+	offset_points = real_coords - position
+
+	print ("offset points: ", offset_points.shape)
+	print("offset points[:0]" , offset_points[:, 0].shape)
+	print ("offset points [:1]", offset_points[:, 1].shape)
+
+	
+	mul_vec = np.multiply(offset_points, dir_vec)
+
+	dir_norm = np.linalg.norm(dir_vec)
+	points_norm = np.linalg.norm(offset_points, axis=1)
+	print("points norm:", points_norm.shape)
+
+	norm_prod = points_norm * dir_norm
+	norm_prod = np.expand_dims(norm_prod, axis=1)
+	print("norm prod: ", norm_prod.shape)
+
+	dot_prod = np.sum(mul_vec, axis=1)
+	dot_prod = np.expand_dims(dot_prod, axis=1)
+
+	print ("dot prod: ", dot_prod.shape)
+	cos_sim = np.divide(dot_prod, norm_prod)
+
+	print("cos sim: ", cos_sim.shape)
+
+	sim_thresh = 0.9
+	truth_mask = (cos_sim >= sim_thresh)
+	truth_mask = np.ravel(truth_mask)
+
+	print ("truth_mask: ", truth_mask.shape)
+	good_points = offset_points[truth_mask]
+
+	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
+	cv2.line(rgb_portrait, (pix_x, pix_y), (pix_x + pdir_x * 10, pix_y + pdir_y * 10), color=(255, 0, 0), thickness=2)
+	
+	print ("hit points: ", good_points.shape)
+	return (good_points.shape[0] > 1), rgb_portrait
+
+def cos_sim_test(scan_por, dir_vec, position):
+	#There are a lot of flaws with this.  namely that converting the direction vector to pixel coordinates doesn't preserve the direction (it shifts it by a certain amount)
+	
+	portrait = scan_por.get_portrait()
+
+	pdir_x, pdir_y = scan_por.xy_to_coords(dir_vec)
+
+	pix_x, pix_y = scan_por.xy_to_coords(position)
+
+	pos_arr = np.asarray([pix_y, pix_x])
+
+	print("position shape: ", position.shape)
+
+	#make sure points are in the right direction:
+	on_points = np.argwhere(portrait)
+	print ("argwhere shape: ", on_points.shape)
+
+	#TODO: filter out points that aren't in the direction you want.
+	
+	offset_points = on_points - pos_arr
+	print ("offset points: ", offset_points.shape)
+	print("offset points[:0]" , offset_points[:, 0].shape)
+	print ("offset points [:1]", offset_points[:, 1].shape)
+
+	direc_arr = np.array([pdir_y, pdir_x])
+	mul_vec = np.multiply(offset_points, direc_arr)
+
+	dir_norm = np.linalg.norm(direc_arr)
+	points_norm = np.linalg.norm(offset_points, axis=1)
+	print("points norm:", points_norm.shape)
+	norm_prod = points_norm * dir_norm
+	norm_prod = np.expand_dims(norm_prod, axis=1)
+	print("norm prod: ", norm_prod.shape)
+
+	dot_prod = np.sum(mul_vec, axis=1)
+	dot_prod = np.expand_dims(dot_prod, axis=1)
+
+	print ("dot prod: ", dot_prod.shape)
+	cos_sim = np.divide(dot_prod, norm_prod)
+
+	print("cos sim: ", cos_sim.shape)
+
+	sim_thresh = 0.9
+	truth_mask = (cos_sim >= sim_thresh)
+	truth_mask = np.ravel(truth_mask)
+
+	print ("truth_mask: ", truth_mask.shape)
+	good_points = offset_points[truth_mask]
+
+	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
+	cv2.line(rgb_portrait, (pix_x, pix_y), (pix_x + pdir_x * 10, pix_y + pdir_y * 10), color=(255, 0, 0), thickness=2)
+	
+	print ("hit points: ", good_points.shape)
+	return (good_points.shape[0] > 1), rgb_portrait
+
+
+
+
+def new_vec_test(scan_por, dir_vec, position):
+	#TODO: add distance thresholding to function
+	#dir_vec is a numpy array with [x, z]
+	#position is a numpy array with [x, z]
 
 	portrait = scan_por.get_portrait()
 
@@ -47,7 +163,7 @@ def new_vec_test(scan_por, dir_vec, position):
 
 	deviation = 0.1
 
-	hit_idxs = np.where(sub_slopes <= deviation)
+	hit_idxs = np.argwhere(sub_slopes <= deviation)
 	hit_points = on_points[hit_idxs]
 
 	print ("hit points: ", hit_points.shape)
@@ -55,7 +171,6 @@ def new_vec_test(scan_por, dir_vec, position):
 
 	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
 	
-	line_end = dir_vec * 10
 	
 
 	cv2.line(rgb_portrait, (pix_x, pix_y), (pix_x + pdir_x * 10, pix_y + pdir_y * 10), color=(255, 0, 0), thickness=2)
@@ -132,8 +247,12 @@ def main():
 		xz_pos = np.delete(trans_position, 1, axis=0)
 		#pass_fail, rgb_mat = vector_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
 		
-		pass_fail, rgb_mat = new_vec_test(dep_scan, dir_vec=np.array([0.5, 0.0001]), position=xz_pos)
+		#pass_fail, rgb_mat = new_vec_test(dep_scan, dir_vec=np.array([0.5, 0.0001]), position=xz_pos)
 		
+		
+		#pass_fail, rgb_mat = cos_sim_test(dep_scan, dir_vec=np.array([0, 0]), position=xz_pos)
+
+		pass_fail, rgb_mat = real_oord_test(dep_scan, dir_vec=np.array([-1, 0]), position=xz_pos)
 		print("-------------------------pass_fail: ", pass_fail)
 		cv2.imshow("circumstances", rgb_mat)
 
