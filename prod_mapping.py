@@ -4,6 +4,7 @@ import pyrealsense2 as rs
 
 import image_scan as im_scan
 import camera_management as c_man
+from UDP_trajectory_recv import Trajectory_Reciever
 
 
 def real_oord_test(scan_por, dir_vec, position):
@@ -238,6 +239,8 @@ def main():
 	dec_filter = rs.decimation_filter()
 	dep_scan = im_scan.scan_portait()
 
+	traj_recv = Trajectory_Reciever()
+
 	while True:
 		frameset = c_man.get_frames(cam_pipes, dec_filter)
 		scan_mat = dep_scan.get_portrait_from_frames(frameset, depth_scale)
@@ -245,14 +248,11 @@ def main():
 		#dep_scan.conv_reduce()
 		_, trans_position = dep_scan.get_pose()
 		xz_pos = np.delete(trans_position, 1, axis=0)
-		#pass_fail, rgb_mat = vector_test(dep_scan, dir_vec=np.array([0.5, 0.5]), position=xz_pos)
-		
-		#pass_fail, rgb_mat = new_vec_test(dep_scan, dir_vec=np.array([0.5, 0.0001]), position=xz_pos)
-		
-		
-		#pass_fail, rgb_mat = cos_sim_test(dep_scan, dir_vec=np.array([0, 0]), position=xz_pos)
 
-		pass_fail, rgb_mat = real_oord_test(dep_scan, dir_vec=np.array([-1, 0]), position=xz_pos)
+		control_vec = traj_recv.get_trajectory()
+		control_vec = dep_scan.vector_from_vel(control_vec)
+
+		pass_fail, rgb_mat = real_oord_test(dep_scan, dir_vec=control_vec, position=xz_pos)
 		print("-------------------------pass_fail: ", pass_fail)
 		cv2.imshow("circumstances", rgb_mat)
 

@@ -182,3 +182,15 @@ class scan_portait:
 			point_collection.append(point)
 
 		return np.asarray(point_collection, np.float32)
+
+	def vector_from_vel(x_vel, y_vel, position):
+		#this will take the x and y velocities from the pupper's user_controller and rotate that vector to be in the original reference frame
+		rot_func = R.from_quat(self.rotation_quat)
+		#TODO: update to include YAW rate, or maye not
+		ref_vec = np.array([x_vel, y_vel])
+		rotated_vec = rot_func.apply(ref_vec)
+
+		return rotated_vec
+
+
+
