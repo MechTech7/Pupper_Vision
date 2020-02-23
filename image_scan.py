@@ -8,7 +8,7 @@ from scipy.ndimage import convolve
 class scan_portait:
 	#This makes scan portrait a unified object to minimize repetition of code and increase understandability
 
-	def __init__(self, portrait_width=500, meter_width=8, max_point_count=10e4):
+	def __init__(self, portrait_width=500, meter_width=8, max_point_count=0.5e4):
 		self.portrait_width = portrait_width
 		self.meter_width = meter_width
 		self.scale = portrait_width / meter_width
@@ -73,12 +73,18 @@ class scan_portait:
 		#convert a vector of pixel coordinates to real world coordinates
 
 		center_val = int(self.portrait_width / 2)
-		ord_vec[:, 1] -= (center_val - 1)
-		ord_vec[:, 0] -= (self.portrait_width - 1) - (center_val - 1)
+		ord_vec[:, 1] -= center_val
+		ord_vec[:, 0] -= (self.portrait_width - 1) - center_val 
+		ord_vec[:, 0] = -1 * ord_vec[:, 0]
 
 		print ("ord_vec: ", ord_vec.shape)
 		print (ord_vec.dtype)
 		ord_vec = np.divide(ord_vec, self.scale)
+
+		temp = ord_vec.copy()
+		ord_vec[:, 0] = temp[:, 1]
+		ord_vec[:, 1] = temp[:, 0]
+		# ord_vec[:, 1] = ord_vec[:, 0]
 
 		print (ord_vec)
 		return ord_vec
@@ -116,7 +122,7 @@ class scan_portait:
 	def get_pose(self):
 		return self.rotation_quat, self.translation
 
-	def scan_portrait(self, points, min_height = -0.2, max_height = 0.2, panel_width = 1000):
+	def scan_portrait(self, points, min_height = -0.3, max_height = 0.3, panel_width = 1000):
 		#min height and max height are minimum and maximum heights that will be included in the scan portrait
 		#output a numpy matrix that is effectively a slice of the points that are provided
 
@@ -162,10 +168,10 @@ class scan_portait:
 
 	
 		rot_func = R.from_quat(r_angles, normalized=None)
-		roti = rot_func.apply(points)
+		roti = points #rot_func.apply(points)
 	
-		trans_points = np.zeros_like(roti)
-		np.add(roti, trans_vec, trans_points)
+		trans_points = points #np.zeros_like(roti)
+		#np.add(roti, trans_vec, trans_points)
 
 		return trans_points, trans_vec
 
@@ -183,14 +189,14 @@ class scan_portait:
 
 		return np.asarray(point_collection, np.float32)
 
-	def vector_from_vel(x_vel, y_vel, position):
+	def vector_from_vel(self, x_vel, y_vel):
 		#this will take the x and y velocities from the pupper's user_controller and rotate that vector to be in the original reference frame
 		rot_func = R.from_quat(self.rotation_quat)
 		#TODO: update to include YAW rate, or maye not
-		ref_vec = np.array([x_vel, y_vel])
-		rotated_vec = rot_func.apply(ref_vec)
+		ref_vec = np.array([-y_vel, 0, x_vel])
+		rotated_vec = ref_vec#rot_func.apply(ref_vec)
 
-		return rotated_vec
+		return np.delete(rotated_vec, 1, axis=0)
 
 
 

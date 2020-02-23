@@ -7,7 +7,7 @@ import camera_management as c_man
 from UDP_trajectory_recv import Trajectory_Reciever
 
 
-def real_oord_test(scan_por, dir_vec, position):
+def real_oord_test(scan_por, dir_vec, position, dist_threshold=0.3):
 	#This a function that does the cosine similarity detection but with the coordinates from the scan portrait
 	#converted into real coordinate values to preserve direction
 	
@@ -55,10 +55,18 @@ def real_oord_test(scan_por, dir_vec, position):
 	truth_mask = np.ravel(truth_mask)
 
 	print ("truth_mask: ", truth_mask.shape)
-	good_points = offset_points[truth_mask]
+	
 
 	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
-	cv2.line(rgb_portrait, (pix_x, pix_y), (pix_x + pdir_x * 10, pix_y + pdir_y * 10), color=(255, 0, 0), thickness=2)
+
+	dist_truth = points_norm <= dist_threshold
+
+	big_mask = np.logical_and(truth_mask, dist_truth)
+
+	good_points = offset_points[big_mask]
+	# print(pdir_x, pdir_y)
+	# print(pix_x-250+pdir_x * 10, pix_y-250+pdir_y * 10)
+	cv2.line(rgb_portrait, (pix_x, pix_y), (pix_x-250+pdir_x, pix_y-250+pdir_y), color=(255, 0, 0), thickness=2)
 	
 	print ("hit points: ", good_points.shape)
 	return (good_points.shape[0] > 1), rgb_portrait
@@ -249,9 +257,10 @@ def main():
 		_, trans_position = dep_scan.get_pose()
 		xz_pos = np.delete(trans_position, 1, axis=0)
 
-		control_vec = traj_recv.get_trajectory()
-		control_vec = dep_scan.vector_from_vel(control_vec)
+		x_vel, y_vel = traj_recv.get_trajectory()
+		control_vec = dep_scan.vector_from_vel(x_vel, y_vel)
 
+		print ("!dir_vec: ", control_vec)
 		pass_fail, rgb_mat = real_oord_test(dep_scan, dir_vec=control_vec, position=xz_pos)
 		print("-------------------------pass_fail: ", pass_fail)
 		cv2.imshow("circumstances", rgb_mat)
