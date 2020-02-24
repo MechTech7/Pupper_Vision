@@ -16,12 +16,3 @@ class Trajectory_Reciever:
         except:
             print ("error getting the message")
             return 0, 0
-
-class StayOrGo:
-    #decide UDP port
-    def __init__(self, port=3500):
-        self.pi_publisher = Publisher(port)
-        pass
-    def send_value(self):
-        self.pi_publisher.send({"go_val": })
-        pass

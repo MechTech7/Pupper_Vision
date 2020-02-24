@@ -7,16 +7,21 @@ import camera_management as c_man
 from UDP_trajectory_recv import Trajectory_Reciever
 from UDPComms import Publisher
 
-def soft_danger(norm_collection, min_dist=0.3):
+def soft_danger(norm_collection, min_dist=0.3, danger_dist=0.5):
 	#take the points and minimum distance and construct a soft value danger (between 0 and 1)
 	#norm_collection: the collection of the norms on the line
 	#min_dist: minimum distance from the camera any point can be
 	
 	#mean_point_dist = np.mean(norm_collection, axis=0)
-	min_point_dist = np.min(point_collection, axis=0)
-	soft_value = max(1, (min_dist / min_point_dist))
+	min_point_dist = np.min(norm_collection, axis=0)
 
-	return soft_value
+	x_trans = 
+	if min_point_dist >= danger_dist:
+		return 1.0
+	elif min_point_dist <= min_dist:
+		return 0.0
+	
+	return (danger_dist - min_dist) * (min_point_dist - min_dist)
 
 def real_oord_test(scan_por, dir_vec, position, dist_threshold=0.3):
 	#This a function that does the cosine similarity detection but with the coordinates from the scan portrait
