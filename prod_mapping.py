@@ -5,7 +5,18 @@ import pyrealsense2 as rs
 import image_scan as im_scan
 import camera_management as c_man
 from UDP_trajectory_recv import Trajectory_Reciever
+from UDPComms import Publisher
 
+def soft_danger(norm_collection, min_dist=0.3):
+	#take the points and minimum distance and construct a soft value danger (between 0 and 1)
+	#norm_collection: the collection of the norms on the line
+	#min_dist: minimum distance from the camera any point can be
+	
+	#mean_point_dist = np.mean(norm_collection, axis=0)
+	min_point_dist = np.min(point_collection, axis=0)
+	soft_value = max(1, (min_dist / min_point_dist))
+
+	return soft_value
 
 def real_oord_test(scan_por, dir_vec, position, dist_threshold=0.3):
 	#This a function that does the cosine similarity detection but with the coordinates from the scan portrait
@@ -68,8 +79,10 @@ def real_oord_test(scan_por, dir_vec, position, dist_threshold=0.3):
 	# print(pix_x-250+pdir_x * 10, pix_y-250+pdir_y * 10)
 	cv2.line(rgb_portrait, (pix_x, pix_y), (pix_x-250+pdir_x, pix_y-250+pdir_y), color=(255, 0, 0), thickness=2)
 	
+	
 	print ("hit points: ", good_points.shape)
-	return (good_points.shape[0] > 1), rgb_portrait
+	soft_d_val = soft_danger(points_norm, min_dist=dist_threshold)
+	return soft_d_val, rgb_portrait
 
 def cos_sim_test(scan_por, dir_vec, position):
 	#There are a lot of flaws with this.  namely that converting the direction vector to pixel coordinates doesn't preserve the direction (it shifts it by a certain amount)
@@ -125,9 +138,6 @@ def cos_sim_test(scan_por, dir_vec, position):
 	
 	print ("hit points: ", good_points.shape)
 	return (good_points.shape[0] > 1), rgb_portrait
-
-
-
 
 def new_vec_test(scan_por, dir_vec, position):
 	#TODO: add distance thresholding to function
@@ -185,9 +195,6 @@ def new_vec_test(scan_por, dir_vec, position):
 	cv2.line(rgb_portrait, (pix_x, pix_y), (pix_x + pdir_x * 10, pix_y + pdir_y * 10), color=(255, 0, 0), thickness=2)
 
 	return (hit_points.shape[0] > 1), rgb_portrait
-	
-
-
 
 def vector_test(scan_por, dir_vec, position):
 	#tests a vector in a given direction
@@ -248,7 +255,8 @@ def main():
 	dep_scan = im_scan.scan_portait()
 
 	traj_recv = Trajectory_Reciever()
-
+	stay_go_sender = Publisher(3500)
+	
 	while True:
 		frameset = c_man.get_frames(cam_pipes, dec_filter)
 		scan_mat = dep_scan.get_portrait_from_frames(frameset, depth_scale)
@@ -261,8 +269,10 @@ def main():
 		control_vec = dep_scan.vector_from_vel(x_vel, y_vel)
 
 		print ("!dir_vec: ", control_vec)
-		pass_fail, rgb_mat = real_oord_test(dep_scan, dir_vec=control_vec, position=xz_pos)
-		print("-------------------------pass_fail: ", pass_fail)
+		soft_danger, rgb_mat = real_oord_test(dep_scan, dir_vec=control_vec, position=xz_pos)
+		
+		stay_go_sender.send({"soft_danger": soft_danger})
+		print("-------------------------pass_fail: ", soft_danger)
 		cv2.imshow("circumstances", rgb_mat)
 
 		if cv2.waitKey(1) & 0xFF == ord('q'):
