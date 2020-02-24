@@ -77,7 +77,7 @@ class scan_portait:
 		ord_vec[:, 0] -= (self.portrait_width - 1) - center_val 
 		ord_vec[:, 0] = -1 * ord_vec[:, 0]
 
-		print ("ord_vec: ", ord_vec.shape)
+		#print ("ord_vec: ", ord_vec.shape)
 		print (ord_vec.dtype)
 		ord_vec = np.divide(ord_vec, self.scale)
 
@@ -86,7 +86,7 @@ class scan_portait:
 		ord_vec[:, 1] = temp[:, 0]
 		# ord_vec[:, 1] = ord_vec[:, 0]
 
-		print (ord_vec)
+		#print (ord_vec)
 		return ord_vec
 
 

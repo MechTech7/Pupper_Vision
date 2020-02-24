@@ -7,23 +7,35 @@ import camera_management as c_man
 from UDP_trajectory_recv import Trajectory_Reciever
 from UDPComms import Publisher
 
-def soft_danger(norm_collection, min_dist=0.3, danger_dist=0.5):
+def soft_danger(norm_collection, min_dist=0.3, danger_dist=0.6):
 	#take the points and minimum distance and construct a soft value danger (between 0 and 1)
 	#norm_collection: the collection of the norms on the line
 	#min_dist: minimum distance from the camera any point can be
 	
 	#mean_point_dist = np.mean(norm_collection, axis=0)
-	min_point_dist = np.min(norm_collection, axis=0)
 
-	x_trans = 
+	norm_shape = norm_collection.shape
+	print ("norm_shape: ", norm_shape)
+	if norm_shape[0] < 5:
+		#if there aren't many points just say its clear
+		print ("too few points")
+		return 1.0
+
+	min_point_dist = np.mean(norm_collection, axis=0)
+	print ("min_point_dist: ", min_point_dist)
+
+	min_point_dist = float(min_point_dist)
 	if min_point_dist >= danger_dist:
+		print ("out of the danger zone")
 		return 1.0
 	elif min_point_dist <= min_dist:
+		print ("danger will robinson")
+		print ("min_dist: ", min_dist)
 		return 0.0
 	
-	return (danger_dist - min_dist) * (min_point_dist - min_dist)
+	return 1 / (danger_dist - min_dist) * (min_point_dist - min_dist)
 
-def real_oord_test(scan_por, dir_vec, position, dist_threshold=0.3):
+def real_oord_test(scan_por, dir_vec, position, dist_threshold=1.0):
 	#This a function that does the cosine similarity detection but with the coordinates from the scan portrait
 	#converted into real coordinate values to preserve direction
 	
@@ -43,34 +55,29 @@ def real_oord_test(scan_por, dir_vec, position, dist_threshold=0.3):
 	real_coords = scan_por.coords_to_xy(on_points)
 	offset_points = real_coords - position
 
-	print ("offset points: ", offset_points.shape)
-	print("offset points[:0]" , offset_points[:, 0].shape)
-	print ("offset points [:1]", offset_points[:, 1].shape)
-
-	
 	mul_vec = np.multiply(offset_points, dir_vec)
 
 	dir_norm = np.linalg.norm(dir_vec)
 	points_norm = np.linalg.norm(offset_points, axis=1)
-	print("points norm:", points_norm.shape)
+	#print("points norm:", points_norm.shape)
 
 	norm_prod = points_norm * dir_norm
 	norm_prod = np.expand_dims(norm_prod, axis=1)
-	print("norm prod: ", norm_prod.shape)
+	#print("norm prod: ", norm_prod.shape)
 
 	dot_prod = np.sum(mul_vec, axis=1)
 	dot_prod = np.expand_dims(dot_prod, axis=1)
 
-	print ("dot prod: ", dot_prod.shape)
+	#print ("dot prod: ", dot_prod.shape)
 	cos_sim = np.divide(dot_prod, norm_prod)
 
-	print("cos sim: ", cos_sim.shape)
+	#print("cos sim: ", cos_sim.shape)
 
 	sim_thresh = 0.9
 	truth_mask = (cos_sim >= sim_thresh)
 	truth_mask = np.ravel(truth_mask)
 
-	print ("truth_mask: ", truth_mask.shape)
+	#print ("truth_mask: ", truth_mask.shape)
 	
 
 	rgb_portrait = cv2.cvtColor(portrait, cv2.COLOR_GRAY2RGB)
@@ -86,7 +93,8 @@ def real_oord_test(scan_por, dir_vec, position, dist_threshold=0.3):
 	
 	
 	print ("hit points: ", good_points.shape)
-	soft_d_val = soft_danger(points_norm, min_dist=dist_threshold)
+
+	soft_d_val = soft_danger(points_norm[big_mask])
 	return soft_d_val, rgb_portrait
 
 def cos_sim_test(scan_por, dir_vec, position):
